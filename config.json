@@ -1,0 +1,11 @@
+{
+  "target_base_url": "",
+  "default_agent_id": "",
+  "default_secret_key": "",
+
+  "server_address": ":8080",
+  "model_map": {
+    "gpt-4o-mini": "Deepseek-V3-bailian",
+    "gpt-4.1": "Deepseek-V3-bailian"
+  }
+}
