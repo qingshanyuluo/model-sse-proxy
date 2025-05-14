@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -21,6 +22,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("无法加载配置: %v", err)
 	}
+	// 初始化日志文件
+	logFile, err := os.OpenFile(config.LogDirectory, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal("无法创建日志文件:", err)
+	}
+	log.SetOutput(logFile)
+	log.SetFlags(log.Ldate | log.Ltime)
 
 	// 注册路由
 	http.HandleFunc("/chat/completions", openAIProxyHandler)
@@ -64,6 +72,9 @@ func openAIProxyHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "无效的请求格式", http.StatusBadRequest)
 		return
 	}
+
+	// 记录输入消息
+	log.Printf("收到请求消息: %+v\n", openAIReq.Messages)
 
 	// 4. 转换为私有API格式
 	config := GetConfig()
@@ -131,6 +142,9 @@ func openAIProxyHandler(w http.ResponseWriter, r *http.Request) {
 		sessionId := uuid.New().String()
 		created := time.Now().Unix()
 
+		// 用于累积完整的响应消息
+		var fullResponse strings.Builder
+
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "" {
@@ -144,6 +158,9 @@ func openAIProxyHandler(w http.ResponseWriter, r *http.Request) {
 					log.Printf("解析私有API响应失败: %v", err)
 					continue
 				}
+
+				// 累积响应消息
+				fullResponse.WriteString(privateResp.ResponseMessage)
 
 				openAIResp := OpenAISSEResponse{
 					ID:                sessionId,
@@ -174,6 +191,11 @@ func openAIProxyHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// 在流式响应结束时记录完整的消息
+		if fullResponse.Len() > 0 {
+			log.Printf("完整流式响应: %s", fullResponse.String())
+		}
+
 		if err := scanner.Err(); err != nil {
 			log.Printf("SSE流读取过程中发生错误: %v", err)
 		}
@@ -196,6 +218,9 @@ func openAIProxyHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "解析响应失败", http.StatusInternalServerError)
 			return
 		}
+
+		// 记录非流式输出消息
+		log.Printf("完整响应消息: %s\n", privateResp.ResponseMessage)
 
 		// 计算token数量（这里使用简单的估算方法）
 		promptTokens := 13                                                       // 示例值

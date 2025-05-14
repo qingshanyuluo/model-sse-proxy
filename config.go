@@ -20,6 +20,9 @@ type Config struct {
 
 	// 模型名称映射，用于将OpenAI模型名称映射到私有API的服务名称
 	ModelMap map[string]string `json:"model_map,omitempty"`
+
+	// 日志文件存储目录
+	LogDirectory string `json:"log_directory"`
 }
 
 var (
